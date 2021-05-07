@@ -1,0 +1,165 @@
+---
+
+- name: Taking backup of pamd file.
+  shell: cp -f "{{ pamd_conf_path + '/' + item }}" "{{ pamd_conf_path + '/' + item + '_' + timestamp }}"
+  with_items:
+    - system-auth
+    - password-auth
+  register: backup_pamd_config_result
+  tags:
+   - backup_pamd_config
+
+- debug:
+    msg: "Taking backup of pamd file task status {{ backup_pamd_config_result }}"
+  when: backup_pamd_config_result is defined
+  tags:
+    - backup_pamd_config
+
+- name: Removing module pam_faildelay.so from Pam Config - {{ pamd_conf_files | join(' | ') }}.
+  pamd:
+    path: "{{ pamd_conf_path }}"
+    name: "{{ item }}"
+    type: auth
+    control: required
+    module_path: pam_faildelay.so
+    state: absent
+  with_items: "{{ pamd_conf_files }}"
+  register: add_pam_faildelay_auth_result
+  tags:
+    - add_pam_faildelay_auth
+
+- debug:
+    msg:
+      - " Removing module pam_faildelay.so from Pam Config - {{ pamd_conf_files | join(' | ') }} task output {{ add_pam_faildelay_auth_result }}"
+      - " Removing module pam_faildelay.so from Pam Config - {{ pamd_conf_files | join(' | ') }} task Status {{ add_pam_faildelay_auth_result.changed }}"
+  when: add_pam_faildelay_auth_result is defined
+  tags:
+    - add_pam_faildelay_auth
+
+- name: Inserting a new rule pam_faillock.so with arguments -- preauth silent deny=5 unlock_time=never fail_interval=900 -- on Pam Config - {{ pamd_conf_files | join(' | ') }}.
+  pamd:
+    path: "{{ pamd_conf_path }}"
+    name: "{{ item }}"
+    type: auth
+    control: required
+    module_path: pam_env.so
+    new_type: auth
+    new_control: required
+    new_module_path: pam_faillock.so
+    module_arguments: 'preauth silent deny=5 unlock_time=never fail_interval=900'
+    state: after
+  with_items: "{{ pamd_conf_files }}"
+  register: add_pam_faillock_auth_result
+  tags:
+    - add_pam_faillock_auth
+- debug:
+    msg:
+      - " Inserting a new rule pam_faillock.so with arguments -- preauth silent deny=5 unlock_time=never fail_interval=900 -- on Pam Config - {{ pamd_conf_files | join(' | ') }} Task Output {{ add_pam_faillock_auth_result }}"
+      - " Inserting a new rule pam_faillock.so with arguments -- preauth silent deny=5 unlock_time=never fail_interval=900 -- on Pam Config - {{ pamd_conf_files | join(' | ') }} Task Status {{ add_pam_faillock_auth_result.changed }}"
+  when: add_pam_faillock_auth_result is defined
+  tags:
+    - add_pam_faillock_auth
+- name: Remove specific arguments from a pam_unix.so module rule on on Pam Config - {{ pamd_conf_files | join(' | ') }}.
+  pamd:
+    path: "{{ pamd_conf_path }}"
+    name: "{{ item }}"
+    type: auth
+    control: sufficient
+    module_path: pam_unix.so
+    module_arguments: nullok
+    state: args_absent
+  with_items: "{{ pamd_conf_files }}"
+  register: remove_pam_unix_auth_args_result
+  tags:
+    - remove_pam_unix_auth_args
+- debug:
+    msg:
+      - " Remove specific arguments from a pam_unix.so module rule on on Pam Config - {{ pamd_conf_files | join(' | ') }} Task Output {{ remove_pam_unix_auth_args_result }}"
+      - " Remove specific arguments from a pam_unix.so module rule on on Pam Config - {{ pamd_conf_files | join(' | ') }} Task Status {{ remove_pam_unix_auth_args_result.changed }}"
+  when: remove_pam_unix_auth_args_result is defined
+  tags:
+    - remove_pam_unix_auth_args
+- name: Inserting a new rule pam_faillock.so with arguments -- authfail deny=5 unlock_time=never fail_interval=900 -- on Pam Config - {{ pamd_conf_files | join(' | ') }}.
+  pamd:
+    path: "{{ pamd_conf_path }}"
+    name: "{{ item }}"
+    type: auth
+    control: sufficient
+    module_path: pam_unix.so
+    new_type: auth
+    new_control: '[default=die]'
+    new_module_path: pam_faillock.so
+    module_arguments: 'authfail deny=5 unlock_time=never fail_interval=900'
+    state: after
+  with_items: "{{ pamd_conf_files }}"
+  register: add_pam_faillock_auth_args_result
+  tags:
+    - add_pam_faillock_auth_args
+- debug:
+    msg:
+      - "Inserting a new rule pam_faillock.so with arguments -- authfail deny=5 unlock_time=never fail_interval=900 -- on Pam Config - {{ pamd_conf_files | join(' | ') }} Task Output {{ add_pam_faillock_auth_args_result }}"
+      - "Inserting a new rule pam_faillock.so with arguments -- authfail deny=5 unlock_time=never fail_interval=900 -- on Pam Config - {{ pamd_conf_files | join(' | ') }} Task Status {{ add_pam_faillock_auth_args_result.changed }}"
+  when: add_pam_faillock_auth_args_result is defined
+  tags:
+    - add_pam_faillock_auth_args
+- name: Insert a new rule pam_faillock.so on Pam Config - {{ pamd_conf_files | join(' | ') }}.
+  pamd:
+    path: "{{ pamd_conf_path }}"
+    name: "{{ item }}"
+    type: account
+    control: required
+    module_path: pam_unix.so
+    new_type: account
+    new_control: required
+    new_module_path: pam_faillock.so
+    state: before
+  with_items: "{{ pamd_conf_files }}"
+  register: add_pam_faillock_account_result
+  tags:
+    - add_pam_faillock_account
+- debug:
+    msg:
+      - "Insert a new rule pam_faillock.so on Pam Config - {{ pamd_conf_files | join(' | ') }} task Output {{ add_pam_faillock_account_result }}"
+      - "Insert a new rule pam_faillock.so on Pam Config - {{ pamd_conf_files | join(' | ') }} task Status {{ add_pam_faillock_account_result.changed }}"
+  when: add_pam_faillock_account_result is defined
+  tags:
+    - add_pam_faillock_account
+- name: Removing nullok arguments from auth type from Pam Config - {{ pamd_conf_files | join(' | ') }}.
+  pamd:
+    path: "{{ pamd_conf_path }}"
+    name: "{{ item }}"
+    type: password
+    control: sufficient
+    module_path: pam_unix.so
+    module_arguments: nullok
+    state: args_absent
+  with_items: "{{ pamd_conf_files }}"
+  register: remove_pam_unix_password_args_password_result
+  tags:
+    - remove_pam_unix_password_args_password
+- debug:
+    msg:
+      - "Removing nullok arguments from auth type from Pam Config - {{ pamd_conf_files | join(' | ') }} Task Output {{ remove_pam_unix_password_args_password_result }}"
+      - "Removing nullok arguments from auth type from Pam Config - {{ pamd_conf_files | join(' | ') }} Task Status {{ remove_pam_unix_password_args_password_result.changed }}"
+  when: remove_pam_unix_password_args_password_result is defined
+  tags:
+    - remove_pam_unix_password_args_password
+- name: Adding remember=5 in system-auth under pam_unix.so module.
+  pamd:
+    path: "{{ pamd_conf_path }}"
+    name: system-auth
+    type: password
+    control: sufficient
+    module_path: pam_unix.so
+    module_arguments: 'remember=5'
+    state: args_present
+  register: add_pam_unix_password_system_auth_result
+  tags:
+    - add_pam_unix_password_system_auth
+- debug:
+    msg:
+      - " Adding remember=5 in system-auth under pam_unix.so module Task Output {{ add_pam_unix_password_system_auth_result }}"
+      - " Adding remember=5 in system-auth under pam_unix.so module Task Status {{ add_pam_unix_password_system_auth_result.changed }}"
+  when: add_pam_unix_password_system_auth_result is defined
+  tags:
+    - add_pam_unix_password_system_auth

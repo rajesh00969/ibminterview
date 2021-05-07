@@ -1,0 +1,18 @@
+---
+ansible_become_pass: "{{ local_sudo_pass }}"
+
+local_vm_hostname: "{{ local_vm_fqdn | default('localhost') }}"
+
+timestamp:  "{{  lookup('pipe','date +%Y_%m_%d') }}"
+
+required_folder_var: "{{ '/tmp/' + '_'.join((ansible_hostname,session_directory_name,timestamp)) + '/'}}"
+
+session_directory_name:  'scan_python_files_data'
+
+local_report_directory: /opt/python_bandit_reports/
+
+remote_report_directory: "{{ ('_').join((ansible_hostname,'python_bandit_report')) }}"
+
+remote_report_folder: '/python_bandit_report/'
+
+bandit_python_scriptdir: bandit_python_scanner_script

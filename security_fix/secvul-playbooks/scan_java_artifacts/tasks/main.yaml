@@ -1,0 +1,203 @@
+---
+
+#We are assigning the sudo pass seperately for local and remote host, As it may be different in certain scenario's.
+
+- name: Storing local sudo password in memory.
+  set_fact:
+    ansible_become_pass: "{{ local_sudo_pass }}"
+  delegate_to: "{{ local_vm_hostname }}"
+  delegate_facts: True
+  register: set_sudo_pass_local_result
+  tags:
+    - set_sudo_pass_local
+    - always
+
+- debug:
+    msg: " Sudo password for local machine is cached in memory"
+  tags:
+    - always
+    - set_sudo_pass_local
+  when: set_sudo_pass_local_result is defined
+
+
+
+- name: Check local directory to store reports is present or not.
+  stat:
+    path: "{{ local_report_directory }}"
+  register: check_local_report_directory_stat_result
+  tags:
+    - check_local_report_directory_stat
+
+- debug:
+    msg:
+      - "Local storage directory check task output {{ check_local_report_directory_stat_result }}"
+      - "Local storage directory check task output {{ check_local_report_directory_stat_result.changed }}"
+  when: check_local_report_directory_stat_result is defined
+  tags:
+    - check_local_report_directory_stat
+
+- name: Creating a directory in local to store all the data.
+  file:
+    path: "{{ local_report_directory }}"
+    state: directory
+    owner: ansible
+    group: ansible
+    mode: '0700'
+  delegate_to: localhost
+  register: create_folder_for_local_report_storage_result
+  when: check_local_report_directory_stat_result.stat.isdir is not defined
+  tags:
+    - create_folder_for_local_report_storage
+
+- debug:
+    msg:
+      - "Creating folder for storing data in local task output - {{ create_folder_for_local_report_storage_result }}"
+      - "Creating folder for storing data in local task status - {{ create_folder_for_local_report_storage_result.changed }}"
+  when: create_folder_for_local_report_storage_result is defined
+  tags:
+    - create_folder_for_local_report_Storage
+
+- name: Creating a directory inside /tmp to store the session data.
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: ansible
+    group: ansible
+    mode: '0700'
+    recurse: yes
+  with_items:
+    - "{{ required_folder_var }}"
+    - "{{ required_folder_var + remote_report_directory }}"
+  register: create_folder_for_session_data_result
+  tags:
+    - create_folder_for_session_data
+
+- debug:
+    msg:
+      - "Creating folder for storing session data task output - {{ create_folder_for_session_data_result }}"
+      - "Creating folder for storing session data task output status - {{ create_folder_for_session_data_result.changed }}"
+  when: create_folder_for_session_data_result is defined
+  tags:
+    - create_folder_for_session_data
+
+- name: Installing UNZIP package.
+  yum:
+    name: unzip
+    state: latest
+  register: install_unzip_package_result
+  when: ansible_os_family == "RedHat"
+  tags:
+    - install_unzip_package
+
+- debug:
+    msg:
+      - "Installing UNZIP package task output {{ install_unzip_package_result }}"
+  when: install_unzip_package_result is defined
+  tags:
+    - install_unzip_package
+
+- name: Download FindBugs Tool.
+  get_url:
+    url: https://github.com/find-sec-bugs/find-sec-bugs/releases/download/version-1.4.5/findsecbugs-cli-1.4.5.zip
+    dest: /tmp
+  register: download_findbugs_tool_result
+  tags:
+    - download_findbugs_tool
+
+- debug:
+    msg:
+      - "Download FindBugs Tool task output {{ download_findbugs_tool_result }}"
+  when: download_findbugs_tool_result is defined
+  tags:
+    - download_findbugs_tool
+
+- name: Extracting the findbug tool.
+  shell: unzip -o findsecbugs-cli-1.4.5.zip -d "{{ required_folder_var + 'findsecbugs' }}"
+  args:
+    chdir: /tmp
+  register: unzip_findbugs_result
+  tags:
+    - unzip_findbugs
+
+- debug:
+    msg:
+      - "Extracting the findbug tool Task Output {{ unzip_findbugs_result }}"
+  when: unzip_findbugs_result is defined
+  tags:
+    - unzip_findbugs
+
+
+- name: Copying Scan_Java_Artifacts.py file.
+  synchronize:
+    src: scan_java_artifacts_python
+    dest: "{{ required_folder_var }}"
+    mode: push
+  become: False
+  register: copy_scan_java_artifacts_python_result
+  when: create_folder_for_session_data_result.changed == True
+  tags:
+    - copy_scan_java_artifacts_python
+
+- debug:
+    msg:
+      - "Copying FindBugs library task output {{ copy_scan_java_artifacts_python_result }}"
+      - "Copying FindBugs library task Status - {{ copy_scan_java_artifacts_python_result.changed }}"
+  tags:
+    - copy_scan_java_artifacts_python
+
+- name: Running static code analysis for the java artificats running on the host.
+  shell: python scan_java_artifacts.py --outputfolder "{{ required_folder_var + remote_report_directory }}" --sudopassword "{{ ansible_become_pass }}" --libraryfolder "{{  required_folder_var + findbugs_remote_librarydir }}"
+  args:
+    chdir: "{{ required_folder_var + findbugs_python_scriptdir }}"
+  become: true
+  when: unzip_findbugs_result.failed == False
+  register: run_code_analysis_result
+  failed_when: "'Traceback' in run_code_analysis_result.stderr"
+  tags:
+    - run_code_analysis
+
+- debug:
+    msg:
+      - "Code analysis for java artificats task output - {{ run_code_analysis_result }}"
+      - "Code analysis for java artificats task status - {{ run_code_analysis_result.changed }}"
+  when: run_code_analysis_result is defined
+  tags:
+    - run_code_analysis
+
+- name: Change permission for report files.
+  file:
+    path: "{{ required_folder_var + remote_report_directory }}"
+    state: directory
+    owner: ansible
+    group: ansible
+    recurse: yes
+  register: change_reports_permission_result
+  when: run_code_analysis_result is defined
+  tags:
+    - change_reports_permission
+
+- debug:
+    msg:
+      - "Change permission for report file task output {{  change_reports_permission_result }}"
+      - "Change permission for report file task Status {{  change_reports_permission_result.changed }}"
+  when: change_reports_permission_result
+  tags:
+    - change_reports_permission
+
+- name: Copying the report files from remote host to ansible server.
+  synchronize:
+    src: "{{ required_folder_var + remote_report_directory }}"
+    dest: "{{ local_report_directory }}"
+    mode: pull
+  become: False
+  register: copy_reports_to_local_result
+  tags:
+    - copy_reports_to_local
+
+- debug:
+    msg:
+      - "Copying Reports to ansible server task output {{ copy_reports_to_local_result }}"
+      - "Copying Reports to ansible server task status -  {{ copy_reports_to_local_result.changed }}"
+  when: copy_reports_to_local_result is defined
+  tags:
+    - copy_reports_to_local

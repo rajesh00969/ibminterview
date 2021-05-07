@@ -1,0 +1,70 @@
+# Assign grub2 password.
+# same as grub2-setpassword command # less /sbin/grub2-setpassword.
+# Since grub2-setpassword is not supporting non-interatc method.
+# Using custom tasks to set grub2 password.
+
+- name: Checking for /sys/firmware/efi/efivars/ directory.
+  stat:
+    path: /sys/firmware/efi/efivars/
+  register: file_check_grub_efi_result
+  tags:
+    - file_check_grub_efi
+
+- debug:
+    msg: "Checking for /sys/firmware/efi/efivars/ directory status {{ file_check_grub_efi_result }}"
+  when: file_check_grub_efi_result is defined
+  tags: file_check_grub_efi
+
+- name: Set grub2 user.cfg - condition 1
+  set_fact:
+    grub_usr_cfg: /boot/efi/EFI/centos/user.cfg
+  when: file_check_grub_efi_result.stat.exists == True
+  register: set_grub2_user_cfg_path_output_1
+  tags:
+    - file_check_grub_efi
+
+- debug:
+    msg: "Set grub2 user.cfg - condition 1 status {{ set_grub2_user_cfg_path_output_1 }}"
+  when: set_grub2_user_cfg_path_output_1 is defined
+  tags: file_check_grub_efi
+
+- name: Set grub2 user.cfg - condition 2
+  set_fact:
+    grub_usr_cfg: /boot/grub2/user.cfg
+  when: file_check_grub_efi_result.stat.exists == False
+  register: set_grub2_user_cfg_path_output_2
+  tags:
+    - file_check_grub_efi
+
+- debug:
+    msg: "Set grub2 user.cfg - condition 2 status {{ set_grub2_user_cfg_path_output_2 }}"
+  when: set_grub2_user_cfg_path_output_2 is defined
+  tags: file_check_grub_efi
+
+- name: set grub2 password.
+  shell: echo "GRUB2_PASSWORD=`echo -e '{{ remote_sudo_pass }}\n{{ remote_sudo_pass }}' | grub2-mkpasswd-pbkdf2 | awk '/grub.pbkdf/{print$NF}'`"  > "{{ grub_usr_cfg }}"
+  become: true
+  tags: set_grub2_pass
+
+- name: change grub2 user from root to rdkadmin.
+  shell: sed -i s/root/rdkadmin/g /etc/grub.d/01_users
+  become: true
+  register: chg_grub2_user_result
+  tags: chg_grub2_user
+
+- debug:
+    msg: "change grub2 user from root to rdkadmin status - {{ chg_grub2_user_result }} "
+  when: chg_grub2_user_result is defined
+  tags: chg_grub2_user
+
+- name: Build grub2 cfg.
+  shell: grub2-mkconfig -o /boot/grub2/grub.cfg
+  become: true
+  register: build_grub2_cfg_result
+  tags: build_grub2_cfg
+
+- debug:
+    msg: "Build grub2 cfg status - {{ build_grub2_cfg_result }}"
+  when: build_grub2_cfg_result is defined
+  tags: build_grub2_cfg
+

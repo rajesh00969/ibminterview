@@ -1,0 +1,18 @@
+mongo_backup_config:
+  backupdb:
+    - 
+    - 
+    - 
+  backup_folder: /home/ubuntu/backup
+  mongodump_path: /home/ubuntu/apps/mongodb/bin/mongodump
+  authentication: false
+  username: ""
+  password:
+  authdb: admin
+  bucket_name: oregon-backups/uat-db-bkp
+  environment: uat
+  toaddr: 
+  fromaddr: 
+  smtp_user: 
+  smtp_pass: 
+  smtp_address: 

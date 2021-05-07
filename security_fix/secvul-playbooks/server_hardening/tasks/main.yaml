@@ -1,0 +1,776 @@
+---
+#We are assigning the sudo seperately for local and remote host, As it may be different in certain scenario's.
+
+- name: Storing local sudo password in memory.
+  set_fact:
+    ansible_become_pass: "{{ local_sudo_pass }}"
+  delegate_to: "{{ local_vm_hostname }}"
+  delegate_facts: True
+  register: set_sudo_pass_local_result
+  tags:
+    - set_sudo_pass_local
+    - always
+
+- debug:
+    msg: " Sudo password for local machine is cached in memory"
+  tags:
+    - always
+    - set_sudo_pass_local
+  when: set_sudo_pass_local_result is defined
+
+- name: Enable password for default user.
+  shell: usermod -p $(echo '{{ remote_sudo_pass }}' | openssl passwd -1 -stdin) "{{ ansible_user }}"
+  become: true
+  register: assign_sudo_password_centos_result
+  tags:
+    - assign_sudo_password_centos
+
+- debug:
+    msg:
+      - "Enable password for {{ ansible_user }} Status - {{ assign_sudo_password_centos_result.changed }}"
+  when: assign_sudo_password_centos_result is defined
+  tags:
+    - assign_sudo_password_centos
+
+- name : set password never expire for automated/service accounts
+  shell: chage -I -1 -m 0 -M 99999 -E -1 "{{ item }}"
+  with_items: "{{ automated_users }}"
+  register: pass_never_expire_result
+  ignore_errors: yes
+  tags:
+    - pass_never_expire
+
+- debug:
+    msg:
+      - "{{ pass_never_expire_result }}"
+
+- name: Installing Required packages.
+  yum:
+    name: "{{ bootstrap_packages_redhat }}"
+    state: latest
+    update_cache: yes
+  register: bootstrap_packages_result
+  tags:
+    - bootstrap_packages
+  notify: bootstrap_packages_notifier
+  when: ansible_os_family == "RedHat"
+
+- debug:
+    msg:
+      - "Installed Packages {{ bootstrap_packages_result }}"
+      - "Installing BootStrap_Packages Task Status - {{ bootstrap_packages_result.changed }}"
+  when: bootstrap_packages_result is defined and ansible_os_family == "RedHat"
+  tags:
+    - bootstrap_packages
+
+- name: Download lynis package
+  shell: |
+    wget https://cisofy.com/files/lynis-{{ lynis_version }}.tar.gz /tmp
+    tar xfvz /tmp/lynis-{{ lynis_version }}.tar.gz
+  become: yes
+  register: lynis_packages_result
+  tags:
+    - install_lynis
+
+- name: Installing Required packages.
+  apt:
+    name: "{{ bootstrap_packages_ubuntu }}"
+    state: latest
+    update_cache: yes
+  register: bootstrap_packages_result
+  tags:
+    - bootstrap_packages
+  when: ansible_os_family == "Debian"
+
+- debug:
+    msg:
+      - "Installed Packages {{ bootstrap_packages_result }}"
+      - "Installing BootStrap_Packages Task Status - {{ bootstrap_packages_result.changed }}"
+  when: bootstrap_packages_result is defined and ansible_os_family == "Debian"
+  tags:
+    - bootstrap_packages
+
+
+- name: Installing RkHunter Package.
+  yum:
+    name: http://dl.fedoraproject.org/pub/epel/7/x86_64/Packages/r/rkhunter-1.4.6-1.el7.noarch.rpm
+    state: present
+  register: rkhunter_package_result
+  tags:
+    - rkhunter_package
+
+- debug:
+    msg:
+      - "Installing RkHunter Package {{ rkhunter_package_result }}"
+      - "Installing RkHunter Package Status {{ rkhunter_package_result.changed }}"
+  when: rkhunter_package_result is defined
+  tags:
+    - rkhunter_package
+
+- name: Installing ansi2html pip package.
+  pip:
+    name: ansi2html
+  register: install_ansi2html_result
+  tags:
+    - install_ansi2html
+
+- debug:
+    msg:
+      - "Installing ansi2html package Output {{ install_ansi2html_result }}"
+      - "Installing ansi2html package status {{ install_ansi2html_result.changed }}"
+  when: install_ansi2html_result is defined
+  tags:
+    - install_ansi2html
+
+- name: Enabling auto security update True.
+  lineinfile:
+    path: /etc/yum/yum-cron.conf
+    regexp: 'update_cmd = default'
+    line: 'update_cmd = security'
+    state: present
+    backrefs: yes
+    backup: yes
+  register: enable_auto_security_update_result
+  notify: yum_cron_service_restart
+  tags:
+    - enable_auto_security_update
+  when: ansible_os_family == "RedHat"
+
+- debug:
+    msg:
+      - "Enabling Auto Security Update {{ enable_auto_security_update_result }}"
+      - "Enabling Auto Security Update Status {{ enable_auto_security_update_result.changed }}"
+  when: enable_auto_security_update_result is defined
+  tags:
+    - enable_auto_security_update
+
+- meta: flush_handlers
+
+- debug:
+    msg: "Restarted the following packages {{ bootstrap_packages_notifier_result }}"
+  when: bootstrap_packages_notifier_result is defined
+
+- debug:
+    msg: "Restarted Yum-Cron service {{ yum_cron_service_restart_result }}"
+  when: yum_cron_service_restart_result is defined
+
+- name: Cleaning /etc/issue and /etc/issue.net.
+  file:
+    path: "{{ item }}"
+    state: absent
+  with_items: "{{ banner_files }}"
+  register: cleanup_bannerfiles_result
+  tags:
+    - cleanup_bannerfiles
+
+- debug:
+    msg:
+      - "Cleaning UP Banner Files {{ cleanup_bannerfiles_result }}"
+      - "Cleaning UP Banner Files Status - {{ cleanup_bannerfiles_result.changed }}"
+  when: cleanup_bannerfiles_result is defined
+  tags:
+    - cleanup_bannerfiles
+
+- name: Populating Banner context in issue and issue.net file.
+  lineinfile:
+    path: "{{ item }}"
+    create: yes
+    line: "{{ banner_context }}"
+  with_items: "{{ banner_files }}"
+  register: populate_banner_context_result
+  tags:
+    - populate_banner_context
+
+- debug:
+    msg:
+      - "Populating Banner context {{ populate_banner_context_result }}"
+      - "Populating Banner context status - {{ populate_banner_context_result.changed }}"
+  when: populate_banner_context_result is defined
+  tags:
+    - populate_banner_context
+
+- name: Enabling SELinux.
+  lineinfile:
+    path: /etc/selinux/config
+    regexp: '^SELINUX=disabled|SELINUX=permissive$'
+    line: "SELINUX=enforcing"
+    state: present
+    backrefs: yes
+    backup: yes
+  register: enable_selinux_result
+  when: ansible_os_family == "RedHat"
+  tags:
+    - enable_selinux
+
+- debug:
+    msg:
+      - "Enabling SELinux {{  enable_selinux_result }} "
+      - "Enabling SELinux status - {{ enable_selinux_result.changed }} "
+  when: enable_selinux_result is defined
+  tags:
+    - enable_selinux
+
+- name: Checking sudo file stat.
+  stat:
+    path: "{{ sudo_file_path }}"
+  register: file_check_sudoers_result
+  tags:
+    - file_check_sudoers
+
+- name: Disabling NoPasswd in Sudoers.
+  lineinfile:
+    path: "{{ sudo_file_path }}"
+    regexp: "{{ item.regx }}"
+    line: "{{ item.line }}"
+    state: present
+    backrefs: yes
+    validate: '/usr/sbin/visudo -cf %s'
+    backup: yes
+  with_items:
+    - {regx: '^centos\sALL=\(ALL\)\sNOPASSWD:ALL', line: 'centos ALL=(ALL) ALL'}
+    - {regx: '^ec2-user\sALL=\(ALL\)\sNOPASSWD:ALL', line: 'ec2-user ALL=(ALL) ALL'}
+  register: disable_nopasswd_result
+  when: file_check_sudoers_result.stat.exists is defined and file_check_sudoers_result.stat.exists == True and ansible_os_family == "RedHat"
+  tags:
+    - disable_nopasswd
+
+- debug:
+    msg:
+      - "Disabling NoPasswd in Sudoers {{ disable_nopasswd_result }}"
+      - "Disabling NoPasswd in Sudoers status -  {{ disable_nopasswd_result.changed }}"
+  when: disable_nopasswd_result is defined
+  tags:
+    - disable_nopasswd
+
+- name: Setting UMASK in Login.def file.
+  lineinfile:
+    path: /etc/login.defs
+    regexp: '^UMASK\s+\d+'
+    line: "UMASK           077"
+    state: present
+    backrefs: yes
+    backup: yes
+  register: logindef_umask_result
+  tags:
+    - logindef_umask
+
+- debug:
+    msg:
+      - "Setting UMASK in Login.def file {{  logindef_umask_result }} "
+      - "Setting UMASK in Login.def file status - {{ logindef_umask_result.changed }} "
+  when: logindef_umask_result is defined
+  tags:
+    - logindef_umask
+
+- name: Setting UMASK in Functions file.
+  lineinfile:
+    path: /etc/init.d/functions
+    regexp: '^umask\s+\d+'
+    line: 'umask 077'
+    state: present
+    backrefs: yes
+    backup: yes
+  register: set_umask_function_result
+  tags:
+    - set_umask_function
+- debug:
+    msg:
+      - "Setting UMASK in Login.def file {{  set_umask_function_result }} "
+      - "Setting UMASK in Login.def file status - {{ set_umask_function_result.changed }} "
+  when: set_umask_function_result is defined
+  tags:
+    - set_umask_function
+
+- name: Setting UMASK in profile file.
+  replace:
+    path: /etc/profile
+    regexp: '^if\s\[\s\$UID\s-gt\s199\s\](.*?);\sthen\n\s+umask\s002\nelse\n\s+umask\s022\nfi'
+    replace: 'umask 077'
+    backup: yes
+  register: set_umask_profile_result
+  when: ansible_os_family == "RedHat"
+  tags:
+    - set_umask_profile
+
+- debug:
+    msg:
+      - "Setting UMASK in Profile file {{  set_umask_profile_result }} "
+      - "Setting UMASK in Profile file status - {{ set_umask_profile_result.changed }} "
+  when: set_umask_profile_result is defined
+  tags:
+    - set_umask_profile
+
+- name: Setting UMASK in bashrc file.
+  replace:
+    path: /etc/bashrc
+    regexp: '^\s+if\s\[\s\$UID\s\-gt\s199\s\]\s\&\&(.*?);\sthen\n\s+umask\s002\n\s+else\n\s+umask\s022\n\s+fi'
+    replace: '    umask 077'
+    backup: yes
+  register: set_umask_bashrc_result
+  when: ansible_os_family == "RedHat"
+  tags:
+    - set_umask_bashrc
+
+- debug:
+    msg:
+      - "Setting UMASK in bashrc file {{  set_umask_bashrc_result }} "
+      - "Setting UMASK in bashrc file status - {{ set_umask_bashrc_result.changed }} "
+  when: set_umask_bashrc_result is defined
+  tags:
+    - set_umask_bashrc
+
+- name: Setting UMASK in Csh file.
+  replace:
+    path: /etc/csh.cshrc
+    regexp: '^if\s\(\$uid\s>\s199\s(.*?)\)\sthen\n\s+umask\s002\nelse\n\s+umask\s022\nendif'
+    replace: 'umask 077'
+    backup: yes
+  register: set_umask_bashrc_result
+  when: ansible_os_family == "RedHat"
+  tags:
+    - set_umask_bashrc
+
+- debug:
+    msg:
+      - "Setting UMASK in bashrc file {{  set_umask_bashrc_result }} "
+      - "Setting UMASK in bashrc file status - {{ set_umask_bashrc_result.changed }} "
+  when: set_umask_bashrc_result is defined
+  tags:
+    - set_umask_bashrc
+
+- name: Setting Password Max Age.
+  lineinfile:
+    path: /etc/login.defs
+    regexp: '^PASS_MAX_DAYS\s+\d+'
+    line: "PASS_MAX_DAYS   {{ pass_max_days_var }}"
+    state: present
+    backrefs: yes
+  register: set_pass_max_days_result
+  tags:
+    - set_pass_max_days
+
+- debug:
+    msg:
+      - "Setting Password Max Age {{  set_pass_max_days_result }} "
+      - "Setting Password Max Age status - {{ set_pass_max_days_result.changed }} "
+  when: set_pass_max_days_result is defined
+  tags:
+    - set_pass_max_days
+
+- name: Setting Password Min Age.
+  lineinfile:
+    path: /etc/login.defs
+    regexp: '^PASS_MIN_DAYS\s+\d+'
+    line: "PASS_MIN_DAYS   {{ pass_min_days_var }}"
+    state: present
+    backrefs: yes
+  register: set_pass_min_days_result
+  tags:
+    - set_pass_min_days
+
+- debug:
+    msg:
+      - "Setting Password Min Age  {{  set_pass_min_days_result }} "
+      - "Setting Password Min Age status - {{ set_pass_min_days_result.changed }} "
+  when: set_pass_min_days_result is defined
+  tags:
+    - set_pass_min_days
+
+- name: Setting Password Min len.
+  lineinfile:
+    path: /etc/login.defs
+    regexp: '^PASS_MIN_LEN\s+\d+'
+    line: "PASS_MIN_LEN    {{ pass_min_len_var }}"
+    state: present
+    backrefs: yes
+  register: set_pass_min_len_result
+  tags:
+    - set_pass_min_len
+  when: ansible_os_family == "RedHat"
+
+- debug:
+    msg:
+      - "Setting Password Min Len {{  set_pass_min_len_result }} "
+      - "Setting Password Min Len status - {{ set_pass_min_len_result.changed }} "
+  when: set_pass_min_len_result is defined
+  tags:
+    - set_pass_min_len
+
+- name: Setting Password War Age.
+  lineinfile:
+    path: /etc/login.defs
+    regexp: '^PASS_WARN_AGE\s+\d+'
+    line: "PASS_WARN_AGE   {{ pass_warn_age_var }}"
+    state: present
+    backrefs: yes
+  register: set_pass_warn_age_result
+  tags:
+    - set_pass_warn_age
+  when: ansible_os_family == "RedHat"
+
+- debug:
+    msg:
+      - "Setting Password Warn Age {{  set_pass_warn_age_result }} "
+      - "Setting Password Max Warn status - {{ set_pass_warn_age_result.changed }} "
+  when: set_pass_warn_age_result is defined
+  tags:
+    - set_pass_warn_age
+
+
+- name: Setting Password Quality
+  blockinfile:
+    path: /etc/security/pwquality.conf
+    insertafter: EOF
+    block: "{{ pwquality_attr }}"
+    backup: yes
+  register: pwquality_result
+  tags:
+    - set_pwquality
+  when: ansible_os_family == 'RedHat'
+
+- debug:
+    msg:
+      - "Setting Password Quality {{ pwquality_result }}"
+      - "Setting Password Quality Status {{ pwquality_result.changed }}"
+  when: pwquality_result is defined
+  tags:
+    - set_pwquality
+
+- name: BLocking Datagram Congestion Control Protocol - DCCP.
+  template:
+    src: dccp.j2
+    dest: /etc/modprobe.d/dccp-blacklist.conf
+    owner: root
+    group: root
+    mode: '0600'
+    backup: yes
+  register: block_dccp_result
+  tags:
+    - block_dccp
+  when: ansible_os_family == 'RedHat'
+
+- debug:
+    msg:
+      - "BLocking DCCP {{ block_dccp_result }}"
+      - "BLocking DCCP Status {{ block_dccp_result.changed }}"
+  when: block_dccp_result is defined
+  tags:
+    - block_dccp
+
+- name: BLocking Stream Control Transmission Protocol - SCTP.
+  template:
+    src: sctp.j2
+    dest: /etc/modprobe.d/sctp-blacklist.conf
+    owner: root
+    group: root
+    mode: '0600'
+    backup: yes
+  register: block_sctp_result
+  tags:
+    - block_sctp
+  when: ansible_os_family == 'RedHat'
+
+- debug:
+    msg:
+      - "BLocking SCTP {{ block_sctp_result }}"
+      - "BLocking SCTP Status {{ block_sctp_result.changed }}"
+  when: block_sctp_result is defined
+  tags:
+    - block_sctp
+
+- name: BLocking USB Drivers.
+  template:
+    src: blacklist-usb.j2
+    dest: /etc/modprobe.d/blacklist-usb.conf
+    owner: root
+    group: root
+    mode: '0600'
+    backup: yes
+  register: block_usb_result
+  tags:
+    - block_usb
+  when: ansible_os_family == 'RedHat'
+
+- debug:
+    msg:
+      - "BLocking USB {{ block_usb_result }}"
+      - "BLocking USB Status {{ block_usb_result.changed }}"
+  when: block_usb_result is defined
+  tags:
+    - block_usb
+
+- name: BLocking Firewire.
+  template:
+    src: blacklist-firewire.j2
+    dest: /etc/modprobe.d/blacklist-firewire.conf
+    owner: root
+    group: root
+    mode: '0600'
+    backup: yes
+  register: block_firewire_result
+  tags:
+    - block_firewire
+  when: ansible_os_family == 'RedHat'
+
+- debug:
+    msg:
+      - "BLocking USB {{ block_firewire_result }}"
+      - "BLocking USB Status {{ block_firewire_result.changed }}"
+  when: block_firewire_result is defined
+  tags:
+    - block_firewire
+
+- name: Adding Kernel parameters in sysctl.conf file .
+  blockinfile:
+    path: /etc/sysctl.conf
+    insertafter: EOF
+    block: "{{ sysctl_conf_var }}"
+    backup: yes
+  register: sysctl_rules_result
+  tags:
+    - sysctl_rules
+  when: ansible_os_family == "RedHat"
+
+- debug:
+    msg:
+      - "Copying sysctl.conf file {{ sysctl_rules_result }}"
+      - "Copying sysctl.conf file status {{ sysctl_rules_result.changed }}"
+  when: sysctl_rules_result is defined
+  tags:
+    - sysctl_rules
+
+- import_tasks: pamd.yaml
+
+- name: Copying audit rules file.
+  copy:
+    src: audit.rules
+    dest: /etc/audit/rules.d/audit.rules
+    owner: root
+    group: root
+    mode: '0640'
+  register: audit_rules_result
+  notify: restart_auditd_service
+  tags:
+    - audit_rules
+  when: ansible_os_family == "RedHat"
+
+- debug:
+    msg:
+      - "Copying audit rules file {{ audit_rules_result }}"
+      - "Copying audit rules file status {{ audit_rules_result.changed }}"
+  when: audit_rules_result is defined
+  tags:
+    - audit_rules
+
+- meta: flush_handlers
+
+- import_tasks: sshd.yaml
+
+- import_tasks: grub2.yaml
+
+- name: Force flushing handler to restart SSH service.
+  meta: flush_handlers
+  tags: copy_sshd_config
+
+- debug:
+    msg: "Restarted SSHD service {{ restart_sshd_service_result }}"
+  when: restart_sshd_service_result is defined
+
+- name: Disabling and Stopping Postfix service.
+  shell: /bin/true
+  notify: stop_postfix_service_notifier
+  tags: stop_postfix_service
+
+- name: Force flushing handler to restart Postfix service.
+  meta: flush_handlers
+  tags: stop_postfix_service
+
+- debug:
+    msg: "Stopped Postfix service {{ stop_postfix_service_result }}"
+  when: stop_postfix_service_result is defined
+
+- name: Changing permission for complier, if present.
+  shell: for complier in `cat /var/log/lynis.log | grep -n 'Found known binary:.* (compiler)' | awk 'match($NF,/^\//){print $NF}'`; do if [ -e $complier ]; then chmod 700 $complier; echo $complier; fi; done
+  become: true
+  register: harden_complier_result
+  tags:
+    - harden_complier
+
+- debug:
+    msg:
+      - "Changing permission for complier task output {{ harden_complier_result.stdout.split('\n') | join(' | ') }}"
+  when: harden_complier_result is defined
+  tags:
+    - harden_complier
+- name: Rebooting Server to Apply changes
+  shell: "sleep 5 && sudo shutdown -r now"
+  async: 1
+  poll: 0
+  register: reboot_server_result
+  tags:
+    - reboot_server
+  when: reboot_server_bool == True
+
+- name: Waiting for server to come Online.
+  wait_for:
+    host: "{{ ansible_default_ipv4.address }}"
+    port: 22
+    delay: 30
+    timeout: 300
+  delegate_to: 127.0.0.1
+  when: reboot_server_bool == True
+  tags:
+    - reboot_server
+
+- name: Running Lynis Report.
+  shell: lynis audit system | ansi2html -la > "{{ lynis_report_output }}"
+  args:
+    chdir: /tmp
+  become: true
+  register: run_lynis_result
+  when: ansible_os_family == "RedHat"
+  tags:
+    - run_lynis
+
+- debug:
+    msg:
+      - "Running Lynis report {{ run_lynis_result }}"
+      - "Running Lynis status {{ run_lynis_result.changed }}"
+  when: run_lynis_result is defined
+  tags:
+    - run_lynis
+
+- name: Running OSCAP Report.
+  shell: oscap xccdf eval --fetch-remote-resources --profile xccdf_org.ssgproject.content_profile_rht-ccp --results "{{ oscap_report_output_xml }}" --report "{{ oscap_report_output_html }}" /usr/share/xml/scap/ssg/content/ssg-centos7-ds.xml
+  args:
+    chdir: /tmp
+  become: true
+  register: run_oscap_result
+  failed_when: run_oscap_result.rc == 0 or run_oscap_result.rc > 2
+  when: ansible_os_family == "RedHat"
+  tags:
+    - run_oscap
+
+- debug:
+    msg:
+      - "Running Oscap report {{ run_oscap_result }}"
+      - "Running Oscap status {{ run_oscap_result.changed }}"
+  when: run_oscap_result is defined
+  tags:
+    - run_oscap
+
+- name: Check Local directory to store reports is present or not.
+  stat:
+    path: "{{ local_report_directory }}"
+  register: check_local_report_directory_stat_result
+  tags:
+    - check_local_report_directory_stat
+
+- debug:
+    msg:
+      - "Local storage directory check task output {{ check_local_report_directory_stat_result }}"
+      - "Local storage directory check task output {{ check_local_report_directory_stat_result.changed }}"
+  when: check_local_report_directory_stat_result is defined
+  tags:
+    - check_local_report_directory_stat
+
+- name: Creating a directory in local to store all the data.
+  file:
+    path: "{{ local_report_directory }}"
+    state: directory
+    mode: '0700'
+  delegate_to: localhost
+  register: create_folder_for_local_report_storage_result
+  when: check_local_report_directory_stat_result.stat.isdir is not defined
+  tags:
+    - create_folder_for_local_report_storage
+
+- debug:
+    msg:
+      - "Creating folder for storing data in local task output - {{ create_folder_for_local_report_storage_result }}"
+      - "Creating folder for storing data in local task status - {{ create_folder_for_local_report_storage_result.changed }}"
+  when: create_folder_for_local_report_storage_result is defined
+  tags:
+    - create_folder_for_local_report_storage
+
+- name: Change permission for report files.
+  file:
+    path: "{{ item }}"
+    state: file
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: '0600'
+  with_items:
+   - "{{ '/tmp/' + lynis_report_output }}"
+   - "{{ '/tmp/' + oscap_report_output_html }}"
+   - "{{ '/tmp/' + oscap_report_output_xml }}"
+  register: change_reports_permission_result
+  when: run_oscap_result is defined and run_lynis_result is defined
+  tags:
+    - change_reports_permission
+
+- debug:
+    msg:
+      - "Change permission for report file task output {{  change_reports_permission_result }}"
+      - "Change permission for report file task Status {{  change_reports_permission_result.changed }}"
+  when: change_reports_permission_result is defined
+  tags:
+    - change_reports_permission
+
+- name: Copying the report files from remote host to ansible server.
+  synchronize:
+    src: "{{ item }}"
+    dest: "{{ local_report_directory }}"
+    mode: pull
+  become: False
+  with_items:
+   - "{{ '/tmp/' + lynis_report_output }}"
+   - "{{ '/tmp/' + oscap_report_output_html }}"
+   - "{{ '/tmp/' + oscap_report_output_xml }}"
+  register: copy_reports_to_local_result
+  tags:
+    - copy_reports_to_local
+
+- debug:
+    msg:
+      - "Copying Reports to ansible server task output {{ copy_reports_to_local_result }}"
+      - "Copying Reports to ansible server task status -  {{ copy_reports_to_local_result.changed }}"
+  when: copy_reports_to_local_result is defined
+  tags:
+    - copy_reports_to_local
+
+- name: Get directory with 0777 permission.
+  shell: find / -type d -perm 0777
+  become: true
+  register: get_0777_files_result
+  tags:
+    - get_0777_files
+
+- debug:
+    msg:
+      - "Get directory with 0777 permission task output {{ get_0777_files_result.stdout.split('\n') }}"
+  when: get_0777_files_result is defined
+  tags:
+    - get_0777_files
+
+- name: Get non-root files under system directory.
+  shell: find / \( -path "/bin/*" -o -path "/sbin/*" -o -path "/usr/bin/*" -o -path "/usr/sbin/*" -o -path "/usr/libexec/*" -o -path "/usr/local/bin/*" -o -path "/usr/local/sbin/*" \) ! -user root
+  become: true
+  register: get_non_root_files_result
+  tags:
+    - get_non_root_files
+
+- debug:
+    msg:
+      - "Get non root files under system directory task output {{ get_non_root_files_result.stdout.split('\n') }}"
+  when: get_non_root_files_result is defined
+  tags:
+    - get_non_root_files
+
+- name: cleanup unwanted packages
+  shell: |
+     rm -rf lynis-{{ lynis_version }}.tar.gz lynis
+  args:
+    chdir: /tmp
+  register: cleanup_result
+  tags: package_cleanup

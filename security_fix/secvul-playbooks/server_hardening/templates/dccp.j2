@@ -1,0 +1,7 @@
+# Provisioned via Ansible
+# Version: 1.0
+
+# DCCP is considered a potential security liability: prevent socket layer
+# From automatically loading related modules using their aliases
+
+{{ blacklist_dccp }}

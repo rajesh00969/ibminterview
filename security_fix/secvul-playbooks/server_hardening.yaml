@@ -1,0 +1,16 @@
+##################################################################################################################################
+#                                                                                                                                #
+# How to run me ?                                                                                                                #
+# ansible-playbook  Server_Hardening.yaml -i '127.0.0.1,' --extra-vars 'Remote_Host_Pass=redacted Local_Sudo_Pass=redacted'      #
+#                                                                                                                                #
+##################################################################################################################################
+
+-
+  hosts:  all
+  gather_facts: yes
+  any_errors_fatal: true
+  become: true
+  roles:
+    - { role: server_hardening, when: "ansible_os_family == 'RedHat'" }
+
+

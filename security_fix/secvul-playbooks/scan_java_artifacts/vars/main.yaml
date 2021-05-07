@@ -1,0 +1,20 @@
+---
+ansible_become_pass: "{{ remote_sudo_pass }}"
+
+local_vm_hostname: "{{ local_vm_fqdn | default('localhost') }}"
+
+timestamp:  "{{  lookup('pipe','date +%Y_%m_%d') }}"
+
+required_folder_var: "{{ '/tmp/' + '_'.join((ansible_hostname,session_directory_name,timestamp)) + '/'}}"
+
+session_directory_name:  'scan_java_artifacts_data'
+
+local_report_directory: /opt/java_findbugs_reports/
+
+remote_report_directory: "{{ ('_').join((ansible_hostname,'findbugs_reports')) }}"
+
+Remote_Report_Folder: '/findbugs_reports/'
+
+findbugs_python_scriptdir: scan_java_artifacts_python
+
+findbugs_remote_librarydir: 'findsecbugs/findbugs/*'

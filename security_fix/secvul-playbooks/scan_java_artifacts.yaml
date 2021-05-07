@@ -1,0 +1,15 @@
+##################################################################################################################################
+#                                                                                                                                #
+# How to run me ?                                                                                                                #
+# ansible-playbook  -i '127.0.0.1,' scan_java_artifacts.yaml --extra-vars 'local_sudo_pass=redacted'                             #
+#                                                                                                                                #
+##################################################################################################################################
+-
+  hosts:  all
+  gather_facts: yes
+  any_errors_fatal: true
+  become: true
+
+
+  roles:
+    - scan_java_artifacts

@@ -1,0 +1,120 @@
+timestamp:  "{{  lookup('pipe','date +%y_%m_%d') }}"
+
+local_vm_hostname: "{{ local_vm_fqdn | default('localhost') }}"
+
+ansible_become_pass: "{{ remote_sudo_pass }}"
+local_sudo_pass:
+remote_sudo_pass:
+ansible_user:
+automated_users:
+automated_sudo_pass:
+bootstrap_packages_redhat:
+  - yum-cron
+  - openscap-scanner
+  - scap-security-guide
+  - python-pip
+  - mailx
+  - psacct
+  - arpwatch
+  - aide
+lynis_version: 2.7.5
+bootstrap_packages_redhat_restart:
+  - arpwatch
+  - psacct
+
+bootstrap_packages_ubuntu:
+  - yum-cron
+  - openscap-scanner
+  - scap-security-guide
+  - python-pip
+  - mailx
+  - psacct
+  - arpwatch
+  - aide
+
+sudo_file_path: /etc/sudoers.d/90-cloud-init-users
+
+banner_files:
+  - /etc/issue
+  - /etc/issue.net
+
+blacklist_dccp: |
+  install dccp /bin/false
+  blacklist dccp
+  blacklist dccp_diag
+  blacklist dccp_ipv4
+  blacklist dccp_ipv6
+
+blacklist_sctp: install sctp /bin/false
+
+blacklist_usb: |
+  install usb-storage /bin/false
+  blacklist usb-storage
+
+blacklist_firewire: |
+  install firewire-core /bin/false
+  blacklist firewire-core
+
+pwquality_attr: |
+  # it is the minimum number of digits in the new password.
+  dcredit =-1
+  # Number of characters in the new password that must not be present in the old password.
+  difok =3
+  # If less than 0 it is the minimum number of other characters in the new password.
+  ocredit =-2
+  # If less than 0 it is the minimum number of lowercase characters in the new password.
+  lcredit =-2
+  # If less than 0 it is the minimum number of uppercase characters in the new password.
+  ucredit =-2
+
+pass_max_days_var: 90
+pass_min_days_var: 7
+pass_min_len_var: 9
+pass_warn_age_var: 14
+
+reboot_server_bool: true
+
+local_report_directory: "{{ '/opt/lynis_and_oscap_report/' + ansible_hostname }}"
+
+lynis_report_output: "{{ '_'.join(('lynis-report-centos7',ansible_hostname)) + '.html' }}"
+
+oscap_report_output_html: "{{ '_'.join(('oscap-report-centos7',ansible_hostname)) + '.html' }}"
+
+oscap_report_output_xml: "{{ '_'.join(('oscap-report-centos7',ansible_hostname)) + '.xml' }}"
+
+sshd_autobahn_config: |
+  # Autobahn config
+  TrustedUserCAKeys /etc/ssh/autobahn_ca_keys.pub
+  AuthorizedPrincipalsFile /etc/ssh/authorized_principals/%u
+
+autobahn_key_checksum: 2ab60da4682b77b663baba38e21cd81f
+
+pamd_conf_files:
+  - system-auth
+  - password-auth
+pamd_conf_path: /etc/pam.d
+sshd_config_path: /etc/ssh/sshd_config
+
+sysctl_conf_var: |
+  ##################
+  ###  KERNEL  #####
+  ##################
+  kernel.dmesg_restrict = 1
+  kernel.kptr_restrict  = 2
+  kernel.sysrq          = 0
+  kernel.yama.ptrace_scope = 1
+
+
+  ##################
+  ###### NET #######
+  ##################
+  net.ipv4.ip_forward = 0
+  net.ipv4.conf.all.log_martians = 1
+  net.ipv4.conf.all.accept_redirects = 0
+  net.ipv4.conf.all.send_redirects = 0
+  net.ipv4.conf.default.accept_redirects = 0
+  net.ipv4.conf.default.log_martians = 1
+  net.ipv4.conf.all.rp_filter = 1
+  net.ipv4.conf.default.rp_filter = 1
+  net.ipv6.conf.all.accept_redirects = 0
+  net.ipv6.conf.default.accept_redirects = 0

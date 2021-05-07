@@ -1,0 +1,39 @@
+---
+- name: yum_cron_service_restart
+  service:
+    name: yum-cron
+    state: restarted
+    enabled: yes
+  register: yum_cron_service_restart_result
+  when: ansible_os_family == "RedHat"
+
+- name: bootstrap_packages_notifier
+  service:
+    name: "{{ item }}"
+    state: restarted
+    enabled: yes
+  register: bootstrap_packages_notifier_result
+  with_items: "{{ bootstrap_packages_redhat_restart }}"
+  when: ansible_os_family == "RedHat"
+
+- name: restart_auditd_service
+  shell: service auditd restart
+  become: true
+  register: restart_auditd_service_result
+  when: ansible_os_family == "RedHat"
+
+- name: restart_sshd_service
+  service:
+    name: sshd
+    state: restarted
+    enabled: yes
+  register: restart_sshd_service_result
+  when: ansible_os_family == "RedHat"
+
+- name: stop_postfix_service_notifier
+  systemd:
+    name: postfix
+    state: stopped
+    enabled: no
+  register: stop_postfix_service_result
+  when: ansible_os_family == "RedHat"

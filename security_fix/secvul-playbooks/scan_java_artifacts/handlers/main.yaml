@@ -1,0 +1,11 @@
+#############################################################
+# In future, any handler related tasks should be placed here.
+# Eg.
+# name: restart sshd
+#   service:
+#   name: ssh
+#   state: restarted
+# register: some_var
+# Name of the task should match the task notify name in the
+# in the main task file.
+############################################################

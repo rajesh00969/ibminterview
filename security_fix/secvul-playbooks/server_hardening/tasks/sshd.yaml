@@ -1,0 +1,520 @@
+#This file will contain the task defenitions for handling sshd config..
+---
+- name: Taking backup of sshd file.
+  shell: cp -f /etc/ssh/sshd_config "{{ '/etc/ssh/sshd_config_' + timestamp }}"
+  register: backup_sshd_config_result
+  become: true
+  tags:
+   - backup_sshd_config
+
+- debug:
+    msg: "Taking backup of sshd file task status {{ backup_sshd_config_result }}"
+  when: backup_sshd_config_result is defined
+  tags:
+    - backup_sshd_config
+
+- name: Enabling  banner in sshd config.
+  lineinfile:
+    path: "{{  sshd_config_path }}"
+    regexp: '^#?Banner\s\w+'
+    line: 'Banner /etc/issue'
+    state: present
+    backrefs: yes
+  register: enable_banner_result
+  tags:
+    - enable_banner
+  when: ansible_os_family == "RedHat"
+- debug:
+    msg:
+      - "Enabling Comast Banner in sshd config task output {{ enable_banner_result }}"
+      - "Enabling Comast Banner in sshd config task Status {{ enable_banner_result.changed }}"
+  when: enable_banner_result is defined
+  tags:
+    - enable_banner
+
+- name: Disabling root login in sshd config.
+  lineinfile:
+    path: "{{  sshd_config_path }}"
+    regexp: '^#?PermitRootLogin\s+\w+'
+    line: 'PermitRootLogin No'
+    state: present
+    backrefs: yes
+    validate: sshd -t -f %s
+    backup: yes
+  register: change_permitrootlogin_result
+  tags:
+    - change_permitrootlogin
+  when: ansible_os_family == "RedHat"
+
+- debug:
+    msg:
+      - " Disabling root login in sshd config Task Output {{ change_permitrootlogin_result }}"
+      - " Disabling PermitEmptyPasswords in sshd config Task Status {{ change_permitrootlogin_result.changed }}"
+  when: change_permitrootlogin_result is defined
+  tags:
+    - change_permitrootlogin
+
+- name: Disabling X11Forwarding  in sshd config.
+  lineinfile:
+    path: "{{  sshd_config_path }}"
+    regexp: '^#?X11Forwarding\s\w+'
+    line: 'X11Forwarding no'
+    state: present
+    backrefs: yes
+    validate: sshd -t -f %s
+  register: change_x11forwarding_result
+  tags:
+    - change_x11forwarding
+  when: ansible_os_family == "RedHat"
+
+- debug:
+    msg:
+      - " Disabling X11Forwarding  in sshd config Task Output {{ change_x11forwarding_result }}"
+      - " DDisabling X11Forwarding  in sshd config Task Status {{ change_x11forwarding_result.changed }}"
+  when: change_x11forwarding_result is defined
+  tags:
+    - change_x11forwarding
+
+- name: Disabling PermitEmptyPasswords in sshd config.
+  lineinfile:
+    path: "{{  sshd_config_path }}"
+    regexp: '^#?PermitEmptyPasswords\s+\w+'
+    line: 'PermitEmptyPasswords no'
+    state: present
+    backrefs: yes
+    validate: sshd -t -f %s
+  register: change_permitemptypasswords_result
+  tags:
+    - change_permitemptypasswords
+  when: ansible_os_family == "RedHat"
+
+- debug:
+    msg:
+      - " Disabling PermitEmptyPasswords in sshd config Task Output {{ change_permitemptypasswords_result }}"
+      - " Disabling PermitEmptyPasswords in sshd config Task Task Status {{ change_permitemptypasswords_result.changed }}"
+  when: change_permitemptypasswords_result is defined
+  tags:
+    - change_permitemptypasswords
+
+- name: Setting ClientAliveCountMax to 0 in sshd config.
+  lineinfile:
+    path: "{{  sshd_config_path }}"
+    regexp: '^#?ClientAliveCountMax\s+\d+'
+    line: 'ClientAliveCountMax 0'
+    state: present
+    backrefs: yes
+    validate: sshd -t -f %s
+  register: change_clientalivecountmax_result
+  tags:
+    - change_clientalivecountmax
+  when: ansible_os_family == "RedHat"
+
+- debug:
+    msg:
+      - " Setting ClientAliveCountMax to 0 in sshd config Task Output {{ change_clientalivecountmax_result }}"
+      - " Setting ClientAliveCountMax to 0 in sshd config Task Status {{ change_clientalivecountmax_result.changed }}"
+  when: change_clientalivecountmax_result is defined
+  tags:
+    - change_clientalivecountmax
+
+- name: Setting ClientAliveInterval to 240 in sshd config.
+  lineinfile:
+    path: "{{  sshd_config_path }}"
+    regexp: '^#?ClientAliveInterval\s+\d+'
+    line: 'ClientAliveInterval 240'
+    state: present
+    backrefs: yes
+    validate: sshd -t -f %s
+  register: change_clientaliveinterval_result
+  tags:
+    - change_clientaliveinterval
+
+  when: ansible_os_family == "RedHat"
+
+- debug:
+    msg:
+      - " Setting ClientAliveInterval to 240 in sshd config Task Output {{ change_clientaliveinterval_result }}"
+      - " Setting ClientAliveInterval to 240 in sshd config Task Status {{ change_clientaliveinterval_result.changed }}"
+  when: change_clientaliveinterval_result is defined
+  tags:
+    - change_clientaliveinterval
+
+- name: Disabling PermitUserEnvironment in sshd config.
+  lineinfile:
+    path: "{{  sshd_config_path }}"
+    regexp: '^#?PermitUserEnvironment\s\w+'
+    line: 'PermitUserEnvironment no'
+    state: present
+    backrefs: yes
+    validate: sshd -t -f %s
+  register: change_permituserenvironment_result
+  tags:
+    - change_permituserenvironment
+  when: ansible_os_family == "RedHat"
+
+- debug:
+    msg:
+      - " Disabling PermitUserEnvironment in sshd config Task Output {{ change_permituserenvironment_result }}"
+      - " Disabling PermitUserEnvironment in sshd config Task Status {{ change_permituserenvironment_result.changed }}"
+  when: change_permituserenvironment_result is defined
+  tags:
+    - change_permituserenvironment
+
+- name: setting IgnoreRhosts to YES in sshd config.
+  lineinfile:
+    path: "{{  sshd_config_path }}"
+    regexp: '^#IgnoreRhosts\s\w+'
+    line: 'IgnoreRhosts yes'
+    state: present
+    backrefs: yes
+    validate: sshd -t -f %s
+  register: change_ignorerhosts_result
+  tags:
+    - change_ignorerhosts
+  when: ansible_os_family == "RedHat"
+
+- debug:
+    msg:
+      - " setting IgnoreRhosts to YES in sshd config Task Output {{ change_ignorerhosts_result }}"
+      - " setting IgnoreRhosts to YES in sshd config Task Status {{ change_ignorerhosts_result.changed }}"
+  when: change_ignorerhosts_result is defined
+  tags:
+    - change_ignorerhosts
+
+- name: Disabling HostbasedAuthentication in sshd config.
+  lineinfile:
+    path: "{{  sshd_config_path }}"
+    regexp: '^#HostbasedAuthentication\s\w+'
+    line: 'HostbasedAuthentication no'
+    state: present
+    backrefs: yes
+    validate: sshd -t -f %s
+  register: change_hostbasedauthentication_result
+  tags:
+    - change_hostbasedauthentication
+  when: ansible_os_family == "RedHat"
+
+- debug:
+    msg:
+      - " Disabling HostbasedAuthentication in sshd config Task Output {{ change_hostbasedauthentication_result }}"
+      - " Disabling HostbasedAuthentication in sshd config Task Status {{ change_hostbasedauthentication_result.changed }}"
+  when: change_hostbasedauthentication_result is defined
+  tags:
+    -  change_hostbasedauthentication
+
+- name: Changing LogLevel in sshd config.
+  lineinfile:
+    path: "{{  sshd_config_path }}"
+    regexp: '^#?LogLevel\s\w+'
+    line: 'LogLevel VERBOSE'
+    state: present
+    backrefs: yes
+    validate: sshd -t -f %s
+  register: change_loglevel_result
+  tags:
+    - change_loglevel
+  when: ansible_os_family == "RedHat"
+
+- debug:
+    msg:
+      - " Changing LogLevel in sshd config Task Output {{ change_loglevel_result }}"
+      - " Changing LogLevel in sshd config Task Status {{ change_loglevel_result.changed }}"
+  when: change_loglevel_result is defined
+  tags:
+    - change_loglevel
+
+- name: setting MaxAuthTries to 2 in sshd config.
+  lineinfile:
+    path: "{{  sshd_config_path }}"
+    regexp: '^#?MaxAuthTries\s\d+'
+    line: 'MaxAuthTries 2'
+    state: present
+    backrefs: yes
+    validate: sshd -t -f %s
+  register: change_maxauthtries_result
+  tags:
+    - change_maxauthtries
+  when: ansible_os_family == "RedHat"
+
+- debug:
+    msg:
+      - " setting MaxAuthTries to 2 in sshd config Task Output {{ change_maxauthtries_result }}"
+      - " setting MaxAuthTries to 2 in sshd config Task Status {{ change_maxauthtries_result.changed }}"
+  when: change_maxauthtries_result is defined
+  tags:
+    - change_maxauthtries
+
+- name: setting MaxSessions to 2 in sshd config.
+  lineinfile:
+    path: "{{  sshd_config_path }}"
+    regexp: '^#?#MaxSessions\s\d+'
+    line: 'MaxSessions 2'
+    state: present
+    backrefs: yes
+    validate: sshd -t -f %s
+  register: change_maxsessions_result
+  tags:
+    - change_maxsessions
+  when: ansible_os_family == "RedHat"
+
+- debug:
+    msg:
+      - " setting MaxSessions to 2 in sshd config Task Output {{ change_maxsessions_result }}"
+      - " setting MaxSessions to 2 in sshd config Task Status {{ change_maxsessions_result.changed }}"
+  when: change_maxsessions_result is defined
+  tags:
+    - change_maxsessions
+
+- name: Disabling UseDNS in sshd config.
+  lineinfile:
+    path: "{{  sshd_config_path }}"
+    regexp: '^#?UseDNS\s\w+'
+    line: 'UseDNS no'
+    state: present
+    backrefs: yes
+    validate: sshd -t -f %s
+  register: change_usedns_result
+  tags:
+    - change_usedns
+  when: ansible_os_family == "RedHat"
+
+- debug:
+    msg:
+      - " Disabling UseDNS in sshd config Task Output {{ change_usedns_result }}"
+      - " Disabling UseDNS in sshd config Task Status {{ change_usedns_result.changed }}"
+  when: change_usedns_result is defined
+  tags:
+    - change_usedns
+
+- name: Disabling AllowAgentForwarding in sshd config.
+  lineinfile:
+    path: "{{  sshd_config_path }}"
+    regexp: '^#?AllowAgentForwarding\s\w+'
+    line: 'AllowAgentForwarding no'
+    state: present
+    backrefs: yes
+    validate: sshd -t -f %s
+  register: change_allowagentforwarding_result
+  tags:
+    - change_allowagentforwarding
+  when: ansible_os_family == "RedHat"
+
+- debug:
+    msg:
+      - " Disabling AllowAgentForwarding in sshd config Task Output {{ change_allowagentforwarding_result }}"
+      - " Disabling AllowAgentForwarding in sshd config Task Status {{ change_allowagentforwarding_result.changed }}"
+  when: change_allowagentforwarding_result is defined
+  tags:
+    - change_allowagentforwarding
+
+- name: Disabling AllowTcpForwarding in sshd config.
+  lineinfile:
+    path: "{{  sshd_config_path }}"
+    regexp: '^#?AllowTcpForwarding\s\w+'
+    line: 'AllowTcpForwarding no'
+    state: present
+    backrefs: yes
+    validate: sshd -t -f %s
+  register: change_allowtcpforwarding_result
+  tags:
+    - change_allowtcpforwarding
+  when: ansible_os_family == "RedHat"
+
+- debug:
+    msg:
+      - " Disabling AllowTcpForwarding in sshd config Task Output {{ change_allowtcpforwarding_result }}"
+      - " Disabling AllowTcpForwarding in sshd config Task Status {{ change_allowtcpforwarding_result.changed }}"
+  when: change_allowtcpforwarding_result is defined
+  tags:
+    - change_allowtcpforwarding
+
+- name: Disabling TCPKeepAlive in sshd config.
+  lineinfile:
+    path: "{{  sshd_config_path }}"
+    regexp: '^#?TCPKeepAlive\s\w+'
+    line: 'TCPKeepAlive no'
+    state: present
+    backrefs: yes
+    validate: sshd -t -f %s
+  register: change_tcpkeepalive_result
+  tags:
+    - change_tcpkeepalive
+  when: ansible_os_family == "RedHat"
+
+- debug:
+    msg:
+      - " Disabling TCPKeepAlive in sshd config Task Output {{ change_tcpkeepalive_result }}"
+      - " Disabling TCPKeepAlive in sshd config Task Status {{ change_tcpkeepalive_result.changed }}"
+  when: change_tcpkeepalive_result is defined
+  tags:
+    - change_tcpkeepalive
+
+- name: Disabling Compression in sshd config.
+  lineinfile:
+    path: "{{  sshd_config_path }}"
+    regexp: '^#?Compression\s\w+'
+    line: 'Compression no'
+    state: present
+    backrefs: yes
+    validate: sshd -t -f %s
+  register: change_compression_result
+  when: ansible_os_family == "RedHat"
+  tags:
+    - change_compression
+
+- debug:
+    msg:
+      - " Disabling Compression in sshd config Task Output {{ change_compression_result }}"
+      - " Disabling Compression in sshd config Task Status {{ change_compression_result.changed }}"
+  when: change_compression_result is defined
+  tags:
+    - change_compression
+
+- name: Checking for LOGGING chain in IPtables.
+  shell: iptables -L
+  register: check_iptables_chain_result
+  ignore_errors: true
+  tags:
+    - check_iptables_chain
+
+- name: Adding IPtables rule for autobahn.
+  shell: iptables -I INPUT -s 10.54.11.204/32 -i eth0 -p tcp -m multiport --dports 22 -m state --state NEW -j LOGGING
+  register: adding_iptables_rule_autobahn_result1
+  become: true
+  ignore_errors: true
+  when: ansible_os_family == "RedHat" and 'LOGGING' in check_iptables_chain_result.stdout_lines
+  tags:
+    - adding_iptables_rule_autobahn
+
+- debug:
+    msg:
+      - "Adding IPtables rule for autobahn task output {{ adding_iptables_rule_autobahn_result1 }}"
+      - "Adding IPtables rule for autobahn task status {{ adding_iptables_rule_autobahn_result1.changed }}"
+  when: adding_iptables_rule_autobahn_result1 is defined
+  tags:
+    - adding_iptables_rule_autobahn
+
+- name: Adding IPtables rule for autobahn.
+  shell: iptables -I INPUT -s 10.54.35.208/32  -i eth0 -p tcp -m multiport --dports 22 -m state --state NEW -j LOGGING
+  register: adding_iptables_rule_autobahn_result2
+  ignore_errors: true
+  become: true
+  when: ansible_os_family == "RedHat" and 'LOGGING' in check_iptables_chain_result.stdout_lines
+  tags:
+    - adding_iptables_rule_autobahn
+
+- debug:
+    msg:
+      - "Adding IPtables rule for autobahn task output {{ adding_iptables_rule_autobahn_result2 }}"
+      - "Adding IPtables rule for autobahn task status {{ adding_iptables_rule_autobahn_result2.changed }}"
+  when: adding_iptables_rule_autobahn_result2 is defined
+  tags:
+    - adding_iptables_rule_autobahn
+
+- name: Adding IPtables rule for autobahn.
+  shell:  iptables -I INPUT -s 10.124.71.105/32 -i eth0 -p tcp -m multiport --dports 22 -m state --state NEW -j LOGGING
+  register: adding_iptables_rule_autobahn_result3
+  become: true
+  ignore_errors: true
+  when: ansible_os_family == "RedHat" and 'LOGGING' in check_iptables_chain_result.stdout_lines
+  tags:
+    - adding_iptables_rule_autobahn1
+
+- debug:
+    msg:
+      - "Adding IPtables rule for autobahn task output {{ adding_iptables_rule_autobahn_result3 }}"
+      - "Adding IPtables rule for autobahn task status {{ adding_iptables_rule_autobahn_result3.changed }}"
+  when: adding_iptables_rule_autobahn_result3 is defined
+  tags:
+    - adding_iptables_rule_autobahn
+
+- name: Downloading AutoBahn CA Key.
+  get_url:
+    url: 
+    dest: /etc/ssh/ca.pub
+    mode: '0440'
+    checksum: "{{ 'md5:' + autobahn_key_checksum }}"
+  register: download_autobahnkey_result
+  tags:
+    - download_autobahnkey
+
+- debug:
+    msg:
+      - "Downloading AutoBahn CA Key task output {{ download_autobahnkey_result }}"
+      - "Downloading AutoBahn CA Key task status {{ download_autobahnkey_result.changed }}"
+  when: download_autobahnkey_result is defined
+  tags:
+    - download_autobahnkey
+
+- name: Adding AutoBahn and cipher configuration in sshd config.
+  blockinfile:
+    path: "{{ sshd_config_path  }}"
+    insertafter: EOF
+    block: "{{ sshd_autobahn_config }}"
+    validate: sshd -t -f %s
+  register: add_autobahn_result
+  when: ansible_os_family == "RedHat"
+  tags:
+    - add_autobahn
+
+- debug:
+    msg:
+      - "Adding AutoBahn configuration in sshd config task Output {{ add_autobahn_result }}"
+      - "Adding AutoBahn configuration in sshd config task Status {{ add_autobahn_result.changed }}"
+  when: add_autobahn_result is defined
+  tags:
+   - add_autobahn
+
+- name: Adding Approved Ciphers in sshd config.
+  lineinfile:
+    path: "{{  sshd_config_path }}"
+    insertafter: '^#\sCiphers\sand\skeying'
+    regexp: '^Ciphers'
+    line: 'Ciphers aes128-ctr,aes192-ctr,aes256-ctr,aes128-cbc,3des-cbc,aes192-cbc,aes256-cbc'
+    state: present
+    validate: sshd -t -f %s
+  register: change_ciphers_result
+  tags:
+    - change_ciphers
+  when: ansible_os_family == "RedHat"
+
+- debug:
+    msg:
+      - " Adding Approved Ciphers in sshd config Task Output {{ change_ciphers_result }}"
+      - " Adding Approved Ciphers in sshd config Task Status {{ change_ciphers_result.changed }}"
+  when: change_compression_result is defined
+  tags:
+    - change_ciphers
+
+
+- name: Notify SSH handler
+  shell: /bin/true
+  notify: restart_sshd_service
+  register: notify_sshd_handler_result
+  tags:
+    - notify_sshd_handler
+
+- debug:
+    msg:
+     - "Notify SSH handler Task Output - {{ notify_sshd_handler_result }}"
+     - "Notify SSH handler Task status - {{ notify_sshd_handler_result.changed }}"
+  tags:
+    - notify_sshd_handler
+    - enable_banner
+    - change_permitrootlogin
+    - change_permitemptypasswords
+    - change_clientalivecountmax
+    - change_clientaliveinterval
+    - change_permituserenvironment
+    - change_ignorerhosts
+    - change_hostbasedauthentication
+    - change_loglevel
+    - change_maxauthtries
+    - change_maxsessions
+    - change_usedns
+    - change_allowagentforwarding
+    - change_allowtcpforwarding
+    - change_compression
+    - change_tcpkeepalive
+    - add_autobahn
+    - change_ciphers
